@@ -31,6 +31,9 @@ public class Player : MonoBehaviour
     private float defaultGravityScale; // Store the default gravity scale
     private Coroutine wallStateCoroutine; // Reference to the wall state coroutine
 
+    public float hurricaneGravityScale = -5f; // Adjustable hurricane gravity
+    private bool isInHurricane = false; // Track whether the player is in a hurricane
+
     void Start()
     {
         // Get the Rigidbody2D component attached to the character
@@ -78,6 +81,12 @@ public class Player : MonoBehaviour
             // Stop movement and falling when on a wall
             rb.velocity = Vector2.zero;
         }
+
+
+        if (isInHurricane)
+        {
+            rb.gravityScale = hurricaneGravityScale; // Apply hurricane gravity
+        }
     }
 
     void Jump()
@@ -110,6 +119,7 @@ public class Player : MonoBehaviour
                 wallStateCoroutine = StartCoroutine(EnableWallState());
             }
         }
+
     }
 
     private void OnCollisionExit2D(Collision2D collision)
@@ -124,6 +134,24 @@ public class Player : MonoBehaviour
                 StopCoroutine(wallStateCoroutine);
                 wallStateCoroutine = null;
             }
+        }
+
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.CompareTag("Hurricane"))
+        {
+            isInHurricane = true;
+        }
+    }
+
+    private void OnTriggerExit2D(Collider2D collision)
+    {
+        if (collision.CompareTag("Hurricane"))
+        {
+            isInHurricane = false;
+            rb.gravityScale = defaultGravityScale; // Restore gravity when leaving
         }
     }
 
