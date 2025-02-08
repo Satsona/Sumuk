@@ -2,82 +2,60 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Player : MonoBehaviour
+public class S_AirECharacter : MonoBehaviour
 {
     [Header("Movement Settings")]
-    [Tooltip("Adjust the movement speed of the character.")]
-    public float moveSpeed = 15f; // Movement speed adjustable in the Inspector
-    [Tooltip("Adjust the movement speed of the character while in the air.")]
-    public float airMoveSpeed = 8f; // Reduced movement speed when in the air
+    public float moveSpeed = 15f;
+    public float airMoveSpeed = 8f;
 
     [Header("Jump Settings")]
-    [Tooltip("Adjust the jump force of the character.")]
-    public float jumpForce = 15f; // Jump force adjustable in the Inspector
-    [Tooltip("Adjust the gravity scale when falling.")]
-    public float fallMultiplier = 4f;// Multiplier for faster falling
-    [Tooltip("Adjust the gravity scale when ascending.")]
-    public float lowJumpMultiplier = 1.2f; // Multiplier for slower ascent
+    public float jumpForce = 15f;
+    public float fallMultiplier = 4f;
+    public float lowJumpMultiplier = 1.2f;
+
 
     [Header("Wall Collision Settings")]
-    [Tooltip("Minimum movement speed required to enable wall state.")]
-    public float wallSpeedThreshold = 0f; // Minimum speed to trigger wall collision
-    [Tooltip("Duration for which isOnWall remains true after activation.")]
-    public float wallStateDuration = 3f; // Duration for wall state
+    public float wallSpeedThreshold = 0f;
+    public float wallStateDuration = 3f;
 
     private Rigidbody2D rb;
     private Vector2 movement;
+
     [Header("Bools")]
-    public bool isGrounded = true; // Track if the character is on the ground
-    private bool isOnWall = false; // Track if the character is colliding with a wall
-    private float defaultGravityScale; // Store the default gravity scale
-    private Coroutine wallStateCoroutine; // Reference to the wall state coroutine
+    public bool isGrounded = true;
+    public bool isOnWall = false;
+    public bool hasWallJumped = false; // New variable to track if player wall-jumped
+    private float defaultGravityScale;
+    private Coroutine wallStateCoroutine;
+
 
     [Header("Hurricane Settings")]
-    public GameObject hurricanePrefab;  // Assign the Hurricane Prefab in the Inspector
-    public float hurricaneGravityScale = -2f; // Adjustable hurricane gravity
-    private bool isInHurricane = false; // Track whether the player is in a hurricane
-    public float hurricaneSpawnDistance = 3f; // Distance from player
-    public float hurricaneLifetime = 5f; // Time before hurricane disappears
+    public GameObject hurricanePrefab;
+    public float hurricaneGravityScale = -2f;
+    private bool isInHurricane = false;
+    public float hurricaneSpawnDistance = 2f;
+    public float hurricaneLifetime = 3f;
+    private bool hasActiveHurricane = false;
 
-
-    private Vector3 originalScale; // Stores the character's default scale
-
-
-
+    private Vector3 originalScale;
 
     void Start()
     {
-        // Get the Rigidbody2D component attached to the character
         rb = GetComponent<Rigidbody2D>();
-        defaultGravityScale = rb.gravityScale; // Save the default gravity scale
-        originalScale = transform.localScale; // Save the initial scale
+        defaultGravityScale = rb.gravityScale;
+        originalScale = transform.localScale;
     }
 
     void Update()
     {
-        // Get input for horizontal movement
         float horizontalInput = Input.GetAxisRaw("Horizontal");
-
-        // Calculate the movement vector
         movement = new Vector2(horizontalInput, 0f).normalized;
 
-        if (movement.x < 0)
-        {
-            transform.localScale = new Vector3(-originalScale.x, originalScale.y, originalScale.z); // Flip without changing size
-        }
-        else if (movement.x > 0)
-        {
-            transform.localScale = new Vector3(originalScale.x, originalScale.y, originalScale.z); // Reset to original size
-        }
-
-
-        // Check for jump input and if the character is grounded or on a wall
         if (Input.GetKeyDown(KeyCode.Space) && (isGrounded || isOnWall) || Input.GetKeyDown(KeyCode.W) && (isGrounded || isOnWall))
         {
             Jump();
         }
 
-        // Press E to spawn a hurricane
         if (Input.GetKeyDown(KeyCode.E))
         {
             SpawnHurricane();
@@ -88,58 +66,101 @@ public class Player : MonoBehaviour
     {
         if (!isOnWall)
         {
-            // Determine the effective movement speed based on whether the character is grounded
             float currentMoveSpeed = isGrounded ? moveSpeed : airMoveSpeed;
-
-            // Apply the movement to the Rigidbody2D
             rb.velocity = new Vector2(movement.x * currentMoveSpeed, rb.velocity.y);
 
-            // Adjust gravity for smoother jumping and falling
             if (rb.velocity.y < 0)
             {
                 rb.velocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.fixedDeltaTime;
             }
-            else if (!isInHurricane && rb.velocity.y > 0 && !Input.GetKey(KeyCode.Space) || Input.GetKey(KeyCode.W))
+            else if (!isInHurricane && rb.velocity.y > 0 && !Input.GetKey(KeyCode.Space) && Input.GetKey(KeyCode.W))
             {
                 rb.velocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.fixedDeltaTime;
             }
-
         }
         else
         {
-            // Stop movement and falling when on a wall
             rb.velocity = Vector2.zero;
         }
 
+        if (movement.x < 0 && GetFacingDirection() == 1)
+        {
+            Turn();
+        }
+        else if (movement.x > 0 && GetFacingDirection() == -1)
+        {
+            Turn();
+        }
 
         if (isInHurricane)
         {
-            rb.gravityScale = hurricaneGravityScale; // Apply hurricane gravity
+            rb.gravityScale = hurricaneGravityScale;
         }
     }
 
     void Jump()
     {
-        // Apply an upward force to the Rigidbody2D
-        rb.velocity = new Vector2(rb.velocity.x, jumpForce);
-        rb.gravityScale = defaultGravityScale; // Reset gravity scale
-        isGrounded = false; // Character is no longer on the ground
-        isOnWall = false;  // Reset wall state after jumping
+        float wallJumpDirection = GetFacingDirection() * -1; // Push away from the wall
+
+        if (isOnWall && !hasWallJumped) // Wall Jump (only if not already wall-jumped)
+        {
+            rb.velocity = new Vector2(wallJumpDirection * moveSpeed, jumpForce);
+            hasWallJumped = true; // Set the limit
+        }
+        else if (isGrounded) // Normal Jump
+        {
+            rb.velocity = new Vector2(rb.velocity.x, jumpForce);
+            hasWallJumped = false; // Reset wall jump status when grounded
+
+        }
+
+        rb.gravityScale = defaultGravityScale;
+        isGrounded = false;
+        isOnWall = false;
+    }
+    
+    private IEnumerator EnableWallState()
+    {
+        isOnWall = true; // Wall state is enabled only if player hasn't wall-jumped
+        rb.velocity = Vector2.zero;
+        rb.gravityScale = 2f;
+
+        // Wait until the player either stays on the wall for the duration or moves away
+        float wallStayTime = 0.0f;
+
+        while (wallStayTime < wallStateDuration)
+        {
+            if ((movement.x > 0 && GetFacingDirection() == -1) || (movement.x < 0 && GetFacingDirection() == 1))
+            {
+                // If the player is moving in the opposite direction, exit the wall state
+                isOnWall = false;
+                rb.gravityScale = defaultGravityScale;
+                yield break; // Exit the coroutine
+            }
+
+            wallStayTime += Time.deltaTime;
+            yield return null;
+        }
+        // Only reset the wall state if the player has not wall-jumped
+        if (!hasWallJumped)
+        {
+            isOnWall = false;
+            rb.gravityScale = defaultGravityScale;
+        }
     }
 
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        // Check if the character collides with the ground
         if (collision.contacts[0].normal.y > 0.5f && !isInHurricane)
         {
             isGrounded = true;
+            hasWallJumped = false; // Reset wall jump when touching the ground
+
         }
 
-        // Check if the character collides with a wall
         if (collision.collider.CompareTag("Wall"))
         {
-            // Enable wall state only if the character's horizontal velocity exceeds the threshold
-            if (Mathf.Abs(rb.velocity.x) >= wallSpeedThreshold)
+            if (!hasWallJumped)
             {
                 if (wallStateCoroutine != null)
                 {
@@ -148,23 +169,20 @@ public class Player : MonoBehaviour
                 wallStateCoroutine = StartCoroutine(EnableWallState());
             }
         }
-
     }
 
     private void OnCollisionExit2D(Collision2D collision)
     {
-        // Reset wall state and gravity when leaving the wall
         if (collision.collider.CompareTag("Wall"))
         {
             isOnWall = false;
-            rb.gravityScale = defaultGravityScale; // Restore gravity scale
+            rb.gravityScale = defaultGravityScale;
             if (wallStateCoroutine != null)
             {
                 StopCoroutine(wallStateCoroutine);
                 wallStateCoroutine = null;
             }
         }
-
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
@@ -173,7 +191,6 @@ public class Player : MonoBehaviour
         {
             isInHurricane = true;
             isGrounded = false;
-            
         }
     }
 
@@ -182,48 +199,87 @@ public class Player : MonoBehaviour
         if (collision.CompareTag("Hurricane"))
         {
             isInHurricane = false;
-            StartCoroutine(TemporaryGravityBoost()); // Start gravity boost coroutine
+            StartCoroutine(TemporaryGravityBoost());
         }
     }
 
-    // Returns 1 if facing right, -1 if facing left
     private float GetFacingDirection()
     {
         return transform.localScale.x > 0 ? 1f : -1f;
-
     }
 
-    private IEnumerator EnableWallState()
-    {
-        isOnWall = true;
-        rb.velocity = Vector2.zero; // Stop all movement and falling
-        rb.gravityScale = 0f; // Disable gravity when on a wall
+ 
 
-        yield return new WaitForSeconds(wallStateDuration);
-
-        isOnWall = false;
-        rb.gravityScale = defaultGravityScale; // Restore gravity scale
-    }
-
-    // Coroutine to increase gravity for 2 seconds
     private IEnumerator TemporaryGravityBoost()
     {
-        rb.gravityScale = defaultGravityScale * 2f; // Double gravity when exiting
-        yield return new WaitForSeconds(2f);       // Wait for 2 seconds
-        rb.gravityScale = defaultGravityScale;     // Reset gravity to normal
+        rb.gravityScale = defaultGravityScale * 2f;
+        yield return new WaitForSeconds(2f);
+        rb.gravityScale = defaultGravityScale;
     }
 
     private void SpawnHurricane()
     {
-        // Determine the spawn position based on facing direction
-        Vector3 spawnPosition = transform.position + new Vector3(GetFacingDirection() * hurricaneSpawnDistance, 3f, 0f);
+        if (hasActiveHurricane)
+        {
+            Debug.Log("Cannot spawn a new hurricane until the previous one is gone.");
+            return;
+        }
 
-        // Instantiate the hurricane
+        float facingDirection = GetFacingDirection();
+        Vector3 spawnPosition = transform.position + new Vector3(facingDirection * hurricaneSpawnDistance, 3f, 0f);
+        float checkDistance = 0.1f;
+        float maxSpawnDistance = hurricaneSpawnDistance;
+
+        BoxCollider2D hurricaneCollider = hurricanePrefab.GetComponent<BoxCollider2D>();
+        float hurricaneWidth = hurricaneCollider ? hurricaneCollider.size.x : 1f;
+
+        RaycastHit2D hit = Physics2D.Linecast(transform.position, spawnPosition, LayerMask.GetMask("Wall", "Ground"));
+
+        if (hit.collider != null)
+        {
+            Debug.Log("Wall detected in spawn path, adjusting spawn position...");
+            float distanceMoved = 0f;
+            while (hit.collider != null && distanceMoved < maxSpawnDistance)
+            {
+                spawnPosition -= new Vector3(facingDirection * checkDistance, 0f, 0f);
+                distanceMoved += checkDistance;
+                hit = Physics2D.Linecast(transform.position, spawnPosition, LayerMask.GetMask("Wall", "Ground"));
+            }
+        }
+
+        while (IsCollidingWithWalls(spawnPosition, hurricaneWidth) && maxSpawnDistance > 0)
+        {
+            spawnPosition -= new Vector3(facingDirection * checkDistance, 0f, 0f);
+            maxSpawnDistance -= checkDistance;
+        }
+
         GameObject newHurricane = Instantiate(hurricanePrefab, spawnPosition, Quaternion.identity);
-
-        // Destroy hurricane after some time
-        Destroy(newHurricane, hurricaneLifetime);
+        hasActiveHurricane = true;
+        StartCoroutine(TrackHurricaneLifetime(newHurricane));
     }
 
-}
+    private bool IsCollidingWithWalls(Vector3 spawnPosition, float width)
+    {
+        Vector2 boxSize = new Vector2(width + 0.1f, 0.1f);
+        Collider2D[] colliders = Physics2D.OverlapBoxAll(spawnPosition, boxSize, 0f, LayerMask.GetMask("Wall", "Ground"));
+        return colliders.Length > 0;
+    }
 
+    private IEnumerator TrackHurricaneLifetime(GameObject hurricane)
+    {
+        yield return new WaitForSeconds(hurricaneLifetime);
+
+        if (hurricane != null)
+        {
+            Destroy(hurricane);
+        }
+        hasActiveHurricane = false;
+    }
+
+    private void Turn()
+    {
+        Vector3 newScale = transform.localScale;
+        newScale.x *= -1;
+        transform.localScale = newScale;
+    }
+}
