@@ -1,10 +1,9 @@
 fileFormatVersion: 2
-guid: ae46bcc6a614b224190f6c16a9561949
+guid: bac293f516a99ba48b028bc36bb3f558
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences:
-  - hurricanePrefab: {fileID: 4562893721340954722, guid: 061aa3e6cc185e04f8eb01b889228fcf, type: 3}
+  defaultReferences: []
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 

@@ -1,0 +1,13 @@
+fileFormatVersion: 2
+guid: f6502105586b62d4ca1a58c191fac6fb
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - airCharacterPrefab: {fileID: 954456823030500309, guid: 01339756a80bb65429992df71cd35885, type: 3}
+  - fireCharacterPrefab: {fileID: 7071694554890911516, guid: 517b964800c3aa840bdfc53d8a900af6, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

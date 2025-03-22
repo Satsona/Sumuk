@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class S_AirECharacter : MonoBehaviour
+public class S_FireECharacter : MonoBehaviour
 {
     [Header("Movement Settings")]
     public float moveSpeed = 15f;
@@ -25,7 +25,6 @@ public class S_AirECharacter : MonoBehaviour
     public bool isGrounded = false;
     public bool isOnWall = false;
     public bool hasWallJumped = false; // New variable to track if player wall-jumped
-    public bool hasActiveHurricane = false;
     private float defaultGravityScale;
     private Coroutine wallStateCoroutine;
 
@@ -36,9 +35,13 @@ public class S_AirECharacter : MonoBehaviour
     private bool isInHurricane = false;
     public float hurricaneSpawnDistance = 2f;
     public float hurricaneLifetime = 3f;
+    private bool hasActiveHurricane = false;
 
     private Vector3 originalScale;
 
+
+
+    // Start is called before the first frame update
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -46,6 +49,7 @@ public class S_AirECharacter : MonoBehaviour
         originalScale = transform.localScale;
     }
 
+    // Update is called once per frame
     void Update()
     {
         float horizontalInput = Input.GetAxisRaw("Horizontal");
@@ -118,7 +122,7 @@ public class S_AirECharacter : MonoBehaviour
         isGrounded = false;
         isOnWall = false;
     }
-    
+
     private IEnumerator EnableWallState()
     {
         isOnWall = true; // Wall state is enabled only if player hasn't wall-jumped
@@ -214,7 +218,7 @@ public class S_AirECharacter : MonoBehaviour
         return transform.localScale.x > 0 ? 1f : -1f;
     }
 
- 
+
 
     private IEnumerator TemporaryGravityBoost()
     {
@@ -261,6 +265,7 @@ public class S_AirECharacter : MonoBehaviour
 
         GameObject newHurricane = Instantiate(hurricanePrefab, spawnPosition, Quaternion.identity);
         hasActiveHurricane = true;
+        StartCoroutine(TrackHurricaneLifetime(newHurricane));
     }
 
     private bool IsCollidingWithWalls(Vector3 spawnPosition, float width)
@@ -270,16 +275,22 @@ public class S_AirECharacter : MonoBehaviour
         return colliders.Length > 0;
     }
 
+    private IEnumerator TrackHurricaneLifetime(GameObject hurricane)
+    {
+        yield return new WaitForSeconds(hurricaneLifetime);
+
+        if (hurricane != null)
+        {
+            Destroy(hurricane);
+        }
+        hasActiveHurricane = false;
+    }
+
     private void Turn()
     {
         Vector3 newScale = transform.localScale;
         newScale.x *= -1;
         transform.localScale = newScale;
     }
-
-    // Add this method to reset the flag when the hurricane is destroyed
-    public void OnHurricaneDestroyed()
-    {
-        hasActiveHurricane = false;
-    }
 }
+
